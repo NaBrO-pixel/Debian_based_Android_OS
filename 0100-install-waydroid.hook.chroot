@@ -3,14 +3,16 @@
 # Runs inside the chroot during `lb build`, as root.
 # This version includes GApps + Play Store support + Aurora Store fallback.
 
-set -eu
+set -euo pipefail
 
 # Configuration
-WAYDROID_REPO_URL="https://repo.waydro.id/"
-AURORA_STORE_URL="https://gitlab.com/AuroraOSS/AuroraStore/-/releases/permalink/latest/downloads/AuroraStore.apk"
-AURORA_STORE_DIR="/usr/share/lapdroid-os/apks"
-WAYDROID_INSTALL_SCRIPT="/tmp/waydroid-install.sh"
-CURL_TIMEOUT="300"
+WAYDROID_REPO_URL="${WAYDROID_REPO_URL:-https://repo.waydro.id/}"
+AURORA_STORE_URL="${AURORA_STORE_URL:-https://gitlab.com/AuroraOSS/AuroraStore/-/releases/permalink/latest/downloads/AuroraStore.apk}"
+AURORA_STORE_DIR="${AURORA_STORE_DIR:-/usr/share/lapdroid-os/apks}"
+WAYDROID_INSTALL_SCRIPT="${WAYDROID_INSTALL_SCRIPT:-/tmp/waydroid-install.sh}"
+CURL_TIMEOUT="${WAYDROID_CURL_TIMEOUT:-300}"
+DOWNLOAD_RETRIES="${WAYDROID_DOWNLOAD_RETRIES:-3}"
+WAYDROID_VERSION="${WAYDROID_VERSION:-latest}"
 
 # Logging
 LOG_PREFIX="[Waydroid Hook]"
@@ -18,47 +20,124 @@ log() {
     echo "$LOG_PREFIX $*" >&2
 }
 
+log_exec() {
+    log "Executing: $*"
+    "$@"
+}
+
 # Cleanup handler for temporary files
 cleanup() {
+    local exit_code=$?
     if [ -f "$WAYDROID_INSTALL_SCRIPT" ]; then
-        rm -f "$WAYDROID_INSTALL_SCRIPT"
+        rm -f "$WAYDROID_INSTALL_SCRIPT" 2>/dev/null || true
     fi
+    return $exit_code
 }
 trap cleanup EXIT
 
 # Verify required commands are available
-for cmd in curl sh apt-get systemctl mkdir; do
+for cmd in curl sh apt-get systemctl mkdir grep waydroid; do
     if ! command -v "$cmd" >/dev/null 2>&1; then
         log "ERROR: Required command '$cmd' not found"
         exit 1
     fi
 done
 
-log "Starting Waydroid installation with GApps support"
+# Check for KVM virtualization support
+check_kvm_support() {
+    if ! grep -qE "kvm|nested" /proc/cpuinfo 2>/dev/null; then
+        log "WARNING: KVM virtualization not detected; Waydroid may not function properly"
+        log "WARNING: Ensure nested virtualization is enabled in your hypervisor"
+    fi
+}
 
-# Download and run Waydroid repository setup script
+# Download with retry logic for transient failures
+download_with_retry() {
+    local url="$1" output="$2" attempts=0
+    
+    while [ $attempts -lt "$DOWNLOAD_RETRIES" ]; do
+        log "Downloading from: $url (attempt $((attempts + 1))/$DOWNLOAD_RETRIES)"
+        
+        if curl --max-time "$CURL_TIMEOUT" -fsSL "$url" -o "$output"; then
+            # Verify the download is not empty
+            if [ -s "$output" ]; then
+                log "Download successful"
+                return 0
+            else
+                log "ERROR: Downloaded file is empty"
+                rm -f "$output"
+            fi
+        else
+            local exit_code=$?
+            log "ERROR: Download failed (exit code: $exit_code)"
+        fi
+        
+        attempts=$((attempts + 1))
+        if [ $attempts -lt "$DOWNLOAD_RETRIES" ]; then
+            log "Retrying in 2 seconds..."
+            sleep 2
+        fi
+    done
+    
+    return 1
+}
+
+# Validate downloaded installer script
+validate_installer() {
+    local script="$1"
+    
+    if ! [ -f "$script" ]; then
+        log "ERROR: Installer script not found at $script"
+        return 1
+    fi
+    
+    if ! grep -q "waydroid" "$script"; then
+        log "ERROR: Downloaded script does not appear to be a valid Waydroid installer"
+        return 1
+    fi
+    
+    if ! head -1 "$script" | grep -qE "^#!"; then
+        log "ERROR: Downloaded script does not have a valid shebang"
+        return 1
+    fi
+    
+    log "Installer script validation passed"
+    return 0
+}
+
+log "Starting Waydroid installation with GApps support (Version: $WAYDROID_VERSION)"
+
+# Check for KVM support
+check_kvm_support
+
+# Download and validate Waydroid repository setup script
 log "Downloading Waydroid repository installer..."
-if ! curl --max-time "$CURL_TIMEOUT" -fsSL "$WAYDROID_REPO_URL" -o "$WAYDROID_INSTALL_SCRIPT"; then
-    log "ERROR: Failed to download Waydroid repository installer"
+if ! download_with_retry "$WAYDROID_REPO_URL" "$WAYDROID_INSTALL_SCRIPT"; then
+    log "ERROR: Failed to download Waydroid repository installer after $DOWNLOAD_RETRIES attempts"
     exit 1
 fi
 
-if ! sh "$WAYDROID_INSTALL_SCRIPT"; then
-    log "ERROR: Waydroid repository installer failed"
+if ! validate_installer "$WAYDROID_INSTALL_SCRIPT"; then
+    exit 1
+fi
+
+log "Executing Waydroid repository installer..."
+if ! log_exec sh "$WAYDROID_INSTALL_SCRIPT"; then
+    log "ERROR: Waydroid repository installer failed (exit code: $?)"
     exit 1
 fi
 log "Waydroid repository configured successfully"
 
 # Update package lists and install Waydroid
 log "Updating package lists..."
-if ! apt-get update; then
-    log "ERROR: apt-get update failed"
+if ! log_exec apt-get update; then
+    log "ERROR: apt-get update failed (exit code: $?)"
     exit 1
 fi
 
 log "Installing Waydroid package..."
-if ! apt-get install -y waydroid; then
-    log "ERROR: Failed to install Waydroid package"
+if ! log_exec apt-get install -y waydroid; then
+    log "ERROR: Failed to install Waydroid package (exit code: $?)"
     exit 1
 fi
 log "Waydroid package installed successfully"
@@ -84,8 +163,8 @@ RemainAfterExit=yes
 WantedBy=multi-user.target
 UNIT
 
-if ! systemctl enable waydroid-first-init.service; then
-    log "ERROR: Failed to enable waydroid-first-init.service"
+if ! log_exec systemctl enable waydroid-first-init.service; then
+    log "ERROR: Failed to enable waydroid-first-init.service (exit code: $?)"
     exit 1
 fi
 log "Waydroid first-boot service enabled"
@@ -96,11 +175,11 @@ log "Waydroid first-boot service enabled"
 log "Downloading Aurora Store APK for offline installation..."
 mkdir -p "$AURORA_STORE_DIR"
 
-if curl --max-time "$CURL_TIMEOUT" -fsSL "$AURORA_STORE_URL" -o "$AURORA_STORE_DIR/AuroraStore.apk"; then
+if download_with_retry "$AURORA_STORE_URL" "$AURORA_STORE_DIR/AuroraStore.apk"; then
     log "Aurora Store APK downloaded successfully"
 else
-    log "WARNING: Aurora Store APK download failed (build will continue without it)"
-    log "Users will need to install Aurora Store manually after first boot"
+    log "WARNING: Aurora Store APK download failed after $DOWNLOAD_RETRIES attempts (build will continue without it)"
+    log "WARNING: Users will need to install Aurora Store manually after first boot"
 fi
 
 # Create helper script for post-boot setup
@@ -171,4 +250,13 @@ Categories=System;
 DESKTOP
 
 log "Desktop entry created"
+
+# Final verification
+log "Verifying Waydroid installation..."
+if ! waydroid --version >/dev/null 2>&1; then
+    log "ERROR: Waydroid verification failed (exit code: $?)"
+    exit 1
+fi
+log "Waydroid installation verified successfully"
+
 log "=== Waydroid + GApps installation complete ==="
