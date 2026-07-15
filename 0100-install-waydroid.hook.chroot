@@ -1,0 +1,174 @@
+#!/bin/sh
+# Installs Waydroid (Android container) into the live image at build time.
+# Runs inside the chroot during `lb build`, as root.
+# This version includes GApps + Play Store support + Aurora Store fallback.
+
+set -eu
+
+# Configuration
+WAYDROID_REPO_URL="https://repo.waydro.id/"
+AURORA_STORE_URL="https://gitlab.com/AuroraOSS/AuroraStore/-/releases/permalink/latest/downloads/AuroraStore.apk"
+AURORA_STORE_DIR="/usr/share/lapdroid-os/apks"
+WAYDROID_INSTALL_SCRIPT="/tmp/waydroid-install.sh"
+CURL_TIMEOUT="300"
+
+# Logging
+LOG_PREFIX="[Waydroid Hook]"
+log() {
+    echo "$LOG_PREFIX $*" >&2
+}
+
+# Cleanup handler for temporary files
+cleanup() {
+    if [ -f "$WAYDROID_INSTALL_SCRIPT" ]; then
+        rm -f "$WAYDROID_INSTALL_SCRIPT"
+    fi
+}
+trap cleanup EXIT
+
+# Verify required commands are available
+for cmd in curl sh apt-get systemctl mkdir; do
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+        log "ERROR: Required command '$cmd' not found"
+        exit 1
+    fi
+done
+
+log "Starting Waydroid installation with GApps support"
+
+# Download and run Waydroid repository setup script
+log "Downloading Waydroid repository installer..."
+if ! curl --max-time "$CURL_TIMEOUT" -fsSL "$WAYDROID_REPO_URL" -o "$WAYDROID_INSTALL_SCRIPT"; then
+    log "ERROR: Failed to download Waydroid repository installer"
+    exit 1
+fi
+
+if ! sh "$WAYDROID_INSTALL_SCRIPT"; then
+    log "ERROR: Waydroid repository installer failed"
+    exit 1
+fi
+log "Waydroid repository configured successfully"
+
+# Update package lists and install Waydroid
+log "Updating package lists..."
+if ! apt-get update; then
+    log "ERROR: apt-get update failed"
+    exit 1
+fi
+
+log "Installing Waydroid package..."
+if ! apt-get install -y waydroid; then
+    log "ERROR: Failed to install Waydroid package"
+    exit 1
+fi
+log "Waydroid package installed successfully"
+
+# Create the first-boot systemd service for Waydroid initialization
+# This runs only on first boot (when waydroid_base.prop doesn't exist yet)
+log "Creating Waydroid first-boot systemd service..."
+cat > /etc/systemd/system/waydroid-first-init.service << 'UNIT'
+[Unit]
+Description=One-time Waydroid Android image initialization (GApps)
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=!/var/lib/waydroid/waydroid_base.prop
+
+[Service]
+Type=oneshot
+# -s GAPPS: Use Google services enabled image (enables Play Store)
+# -f LineageOS: LineageOS image has best GApps compatibility
+ExecStart=/usr/bin/waydroid init -s GAPPS
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+if ! systemctl enable waydroid-first-init.service; then
+    log "ERROR: Failed to enable waydroid-first-init.service"
+    exit 1
+fi
+log "Waydroid first-boot service enabled"
+
+# Download Aurora Store APK for offline availability
+# Aurora Store = open-source Play Store frontend
+# It works without Google certification, allowing app installation even before certification completes
+log "Downloading Aurora Store APK for offline installation..."
+mkdir -p "$AURORA_STORE_DIR"
+
+if curl --max-time "$CURL_TIMEOUT" -fsSL "$AURORA_STORE_URL" -o "$AURORA_STORE_DIR/AuroraStore.apk"; then
+    log "Aurora Store APK downloaded successfully"
+else
+    log "WARNING: Aurora Store APK download failed (build will continue without it)"
+    log "Users will need to install Aurora Store manually after first boot"
+fi
+
+# Create helper script for post-boot setup
+# This script handles Aurora Store installation and Play Store configuration
+log "Creating post-boot setup helper script..."
+mkdir -p /usr/local/bin
+cat > /usr/local/bin/lapdroid-setup-android << 'SCRIPT'
+#!/bin/sh
+echo ""
+echo "=== Lapdroid OS: Android / Play Store setup ==="
+echo ""
+
+# Wait for Waydroid session to be running
+echo "Waiting for Waydroid session..."
+sleep 3
+
+# Install Aurora Store (works without Google account, no certification needed)
+echo "Installing Aurora Store..."
+if [ -f /usr/share/lapdroid-os/apks/AuroraStore.apk ]; then
+    if waydroid app install /usr/share/lapdroid-os/apks/AuroraStore.apk; then
+        echo "Aurora Store installed. Launch it from the Waydroid UI to download any Play Store app."
+    else
+        echo "Aurora Store install failed — make sure Waydroid is running (waydroid session start)"
+    fi
+else
+    echo "Aurora Store APK not found. You can download it from:"
+    echo "  https://gitlab.com/AuroraOSS/AuroraStore/-/releases"
+fi
+
+echo ""
+echo "=== Optional: Enable official Google Play Store ==="
+echo ""
+echo "Aurora Store covers most use cases. If you also want the official"
+echo "Play Store (requires a Google account), do the following:"
+echo ""
+echo "1. Get your Waydroid Android ID:"
+echo "     sudo waydroid shell"
+echo "     sqlite3 /data/data/com.google.android.gsf/databases/gservices.db \\"
+echo "       \"select * from main where name='android_id';\""
+echo "     exit"
+echo ""
+echo "2. Visit this URL on any browser and enter that Android ID:"
+echo "     https://www.google.com/android/uncertified"
+echo ""
+echo "3. Restart Waydroid:"
+echo "     waydroid session stop"
+echo "     waydroid session start"
+echo ""
+echo "4. Open Play Store in the Waydroid UI and sign in with your Google account."
+echo ""
+echo "Note: Google certification can take up to 10 minutes to activate."
+SCRIPT
+
+chmod +x /usr/local/bin/lapdroid-setup-android
+log "Setup helper script created"
+
+# Create desktop entry for easy access to the setup script
+log "Creating desktop application entry..."
+mkdir -p /usr/share/applications
+cat > /usr/share/applications/lapdroid-android-setup.desktop << 'DESKTOP'
+[Desktop Entry]
+Name=Android Setup
+Comment=Set up Play Store and Aurora Store in Waydroid
+Exec=foot -e lapdroid-setup-android
+Icon=android
+Type=Application
+Categories=System;
+DESKTOP
+
+log "Desktop entry created"
+log "=== Waydroid + GApps installation complete ==="

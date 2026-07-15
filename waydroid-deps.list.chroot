@@ -1,0 +1,9 @@
+# Waydroid container dependencies
+# Used for building Debian-based Android OS with Aurora Store support
+# These packages are installed in the container during the build process
+
+curl
+ca-certificates
+lxc
+python3
+dbus-user-session

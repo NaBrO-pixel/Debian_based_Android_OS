@@ -1,0 +1,45 @@
+# Wayland Compositor Stack
+sway
+swaylock
+swayidle
+waybar
+xwayland
+xdg-desktop-portal
+xdg-desktop-portal-wlr
+
+# Terminal
+foot
+
+# Launchers & UI Tools
+wofi
+grim
+slurp
+wl-clipboard
+brightnessctl
+
+# Audio System
+pipewire
+pipewire-pulse
+wireplumber
+pavucontrol
+
+# Networking
+network-manager
+network-manager-gnome
+
+# System & Firmware
+firmware-linux
+firmware-misc-nonfree
+polkit-kde-agent-1
+libgl1-mesa-dri
+
+# File Manager
+thunar
+
+# Fonts
+fonts-noto
+fonts-font-awesome
+fonts-dejavu
+
+# Applications
+firefox-esr
