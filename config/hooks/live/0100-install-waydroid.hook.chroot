@@ -3,7 +3,10 @@
 # Runs inside the chroot during `lb build`, as root.
 # This version includes GApps + Play Store support + Aurora Store fallback.
 
-set -euo pipefail
+set -eu
+
+# dash (/bin/sh on Debian) does not support pipefail; enable it only when available.
+(set -o pipefail) 2>/dev/null && set -o pipefail || true
 
 # Configuration
 WAYDROID_REPO_URL="${WAYDROID_REPO_URL:-https://repo.waydro.id/}"
@@ -38,7 +41,7 @@ cleanup() {
 trap cleanup EXIT
 
 # Verify required commands are available
-for cmd in curl sh apt-get systemctl mkdir grep waydroid; do
+for cmd in curl sh apt-get systemctl mkdir grep head; do
     if ! command -v "$cmd" >/dev/null 2>&1; then
         log "ERROR: Required command '$cmd' not found"
         exit 1
@@ -195,7 +198,10 @@ echo "=== Lapdroid OS: Android / Play Store setup ==="
 echo ""
 
 # Wait for Waydroid session to be running
-echo "Waiting for Waydroid session..."
+echo "Starting Waydroid session if needed..."
+if ! waydroid status >/dev/null 2>&1; then
+    waydroid session start >/dev/null 2>&1 || true
+fi
 sleep 3
 
 # Install Aurora Store (works without Google account, no certification needed)
