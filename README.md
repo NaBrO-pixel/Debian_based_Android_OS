@@ -41,6 +41,23 @@ This repository now builds the foundation for that goal; future releases should
 add automated ISO builds, hardware certification, an installer, a custom shell,
 and full QA on target laptops.
 
+## Merge conflict resolution note
+
+This release intentionally converts the old top-level `config` file into the
+standard live-build `config/` directory and moves the script to `auto/config`.
+If Git reports a file/directory conflict while merging, resolve it by keeping:
+
+- `auto/config` as the executable live-build config script
+- `config/package-lists/` for package lists
+- `config/hooks/live/` for build hooks
+- `config/includes.chroot/` for files copied into the live image
+
+Do not keep the old top-level `config` file. After resolving, run:
+
+```sh
+tools/validate-release-tree
+```
+
 ## Target
 
 - Hardware: Dell Latitude E6440 and similar amd64 laptops
@@ -146,6 +163,7 @@ config/hooks/live/0200-configure-premium-defaults.hook.chroot
                                              Security, app, firmware, and polish defaults
 config/includes.chroot/usr/local/bin/luxenos-health-check
                                              Post-boot diagnostics helper
+tools/validate-release-tree                 Merge/layout validation helper
 README.md                                    Build and release documentation
 ```
 

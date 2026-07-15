@@ -1,0 +1,43 @@
+#!/bin/sh
+# Validate that the LuxenOS live-build tree is merge-clean and build-layout ready.
+
+set -eu
+
+fail() {
+    echo "ERROR: $*" >&2
+    exit 1
+}
+
+check_file() {
+    [ -f "$1" ] || fail "missing required file: $1"
+}
+
+check_executable() {
+    check_file "$1"
+    [ -x "$1" ] || fail "required script is not executable: $1"
+}
+
+if [ -f config ]; then
+    fail "top-level 'config' is a file; live-build requires it to be a directory"
+fi
+
+[ -d config ] || fail "missing live-build config directory"
+check_executable auto/config
+check_file config/package-lists/desktop.list.chroot
+check_file config/package-lists/waydroid-deps.list.chroot
+check_executable config/hooks/live/0100-install-waydroid.hook.chroot
+check_executable config/hooks/live/0200-configure-premium-defaults.hook.chroot
+check_file config/includes.chroot/etc/skel/.config/sway/config
+check_file config/includes.chroot/etc/skel/.config/waybar/config
+check_file config/includes.chroot/etc/skel/.config/waybar/style.css
+check_file config/includes.chroot/etc/skel/.config/wofi/style.css
+check_file config/includes.chroot/etc/sysctl.d/99-luxenos.conf
+check_executable config/includes.chroot/usr/local/bin/luxenos-health-check
+check_file config/includes.chroot/usr/share/applications/luxenos-health-check.desktop
+
+if rg -n '^(<<<<<<<|=======|>>>>>>>)' README.md auto config tools >/dev/null 2>&1; then
+    rg -n '^(<<<<<<<|=======|>>>>>>>)' README.md auto config tools >&2
+    fail "merge conflict markers remain"
+fi
+
+echo "LuxenOS release tree is merge-clean."
