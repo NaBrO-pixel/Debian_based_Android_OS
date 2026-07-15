@@ -7,6 +7,13 @@ xwayland
 xdg-desktop-portal
 xdg-desktop-portal-wlr
 
+# Core System Libraries & Services
+dbus
+udev
+systemd
+libwayland-dev
+libinput-dev
+
 # Terminal
 foot
 
@@ -16,25 +23,39 @@ grim
 slurp
 wl-clipboard
 brightnessctl
+dunst
 
 # Audio System
 pipewire
 pipewire-pulse
 wireplumber
-pavucontrol
+pavucontrol-qt
+alsa-utils
+alsa-firmware
 
 # Networking
 network-manager
 network-manager-gnome
+wireless-tools
+iw
 
 # System & Firmware
 firmware-linux
 firmware-misc-nonfree
 polkit-kde-agent-1
 libgl1-mesa-dri
+libgl1-mesa-glx
+gvfs
+udisks2
 
 # File Manager
 thunar
+tumbler
+ntfs-3g
+
+# Text Editor & Utilities
+gedit
+sudo
 
 # Fonts
 fonts-noto
@@ -43,3 +64,6 @@ fonts-dejavu
 
 # Applications
 firefox-esr
+mpv
+evince
+
