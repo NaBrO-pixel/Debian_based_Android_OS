@@ -30,20 +30,6 @@ log_exec() {
     "$@"
 }
 
-run_or_die() {
-    local description="$1"
-    shift
-    local exit_code
-
-    if log_exec "$@"; then
-        return 0
-    else
-        exit_code=$?
-        log "ERROR: $description failed (exit code: $exit_code)"
-        exit "$exit_code"
-    fi
-}
-
 # Cleanup handler for temporary files
 cleanup() {
     local exit_code=$?
@@ -141,15 +127,24 @@ if ! validate_installer "$WAYDROID_INSTALL_SCRIPT"; then
 fi
 
 log "Executing Waydroid repository installer..."
-run_or_die "Waydroid repository installer" sh "$WAYDROID_INSTALL_SCRIPT"
+if ! log_exec sh "$WAYDROID_INSTALL_SCRIPT"; then
+    log "ERROR: Waydroid repository installer failed (exit code: $?)"
+    exit 1
+fi
 log "Waydroid repository configured successfully"
 
 # Update package lists and install Waydroid
 log "Updating package lists..."
-run_or_die "apt-get update" apt-get update
+if ! log_exec apt-get update; then
+    log "ERROR: apt-get update failed (exit code: $?)"
+    exit 1
+fi
 
 log "Installing Waydroid package..."
-run_or_die "Waydroid package installation" apt-get install -y waydroid
+if ! log_exec apt-get install -y waydroid; then
+    log "ERROR: Failed to install Waydroid package (exit code: $?)"
+    exit 1
+fi
 log "Waydroid package installed successfully"
 
 # Create the first-boot systemd service for Waydroid initialization
@@ -173,7 +168,10 @@ RemainAfterExit=yes
 WantedBy=multi-user.target
 UNIT
 
-run_or_die "Enabling waydroid-first-init.service" systemctl enable waydroid-first-init.service
+if ! log_exec systemctl enable waydroid-first-init.service; then
+    log "ERROR: Failed to enable waydroid-first-init.service (exit code: $?)"
+    exit 1
+fi
 log "Waydroid first-boot service enabled"
 
 # Download Aurora Store APK for offline availability
@@ -199,10 +197,11 @@ echo ""
 echo "=== Lapdroid OS: Android / Play Store setup ==="
 echo ""
 
-# Start Waydroid session if it is not already running. The command can fail when
-# the session is already active, so ignore that specific first-start race.
+# Wait for Waydroid session to be running
 echo "Starting Waydroid session if needed..."
-waydroid session start >/dev/null 2>&1 || true
+if ! waydroid status >/dev/null 2>&1; then
+    waydroid session start >/dev/null 2>&1 || true
+fi
 sleep 3
 
 # Install Aurora Store (works without Google account, no certification needed)
@@ -262,7 +261,10 @@ log "Desktop entry created"
 
 # Final verification
 log "Verifying Waydroid installation..."
-run_or_die "Waydroid verification" waydroid --version
+if ! waydroid --version >/dev/null 2>&1; then
+    log "ERROR: Waydroid verification failed (exit code: $?)"
+    exit 1
+fi
 log "Waydroid installation verified successfully"
 
 log "=== Waydroid + GApps installation complete ==="

@@ -34,9 +34,62 @@ LOCALE="${LOCALE:-en_US.UTF-8}"
 # System timezone
 TIMEZONE="${TIMEZONE:-UTC}"
 
+# Mirror URLs (customizable for different mirrors/regions)
+MIRROR_BOOTSTRAP="${MIRROR_BOOTSTRAP:-http://deb.debian.org/debian}"
+MIRROR_CHROOT="${MIRROR_CHROOT:-http://deb.debian.org/debian}"
+MIRROR_CHROOT_SECURITY="${MIRROR_CHROOT_SECURITY:-http://security.debian.org/debian-security}"
+
+# ============================================================================
+# Helper Functions
+# ============================================================================
+
+show_usage() {
+    cat <<EOF
+Usage: $0 [options]
+
+Configure live-build environment for Debian-based Android OS.
+
+Environment variables:
+  DISTRIBUTION              Debian release (default: trixie)
+  ARCHITECTURES             Target architecture (default: amd64)
+  ARCHIVE_AREAS             Repository areas (default: main contrib non-free non-free-firmware)
+  HOSTNAME                  System hostname (default: debian-live)
+  USERNAME                  Default username (default: user)
+  LOCALE                    System locale (default: en_US.UTF-8)
+  TIMEZONE                  System timezone (default: UTC)
+  MIRROR_BOOTSTRAP          Bootstrap mirror URL
+  MIRROR_CHROOT             Chroot mirror URL
+  MIRROR_CHROOT_SECURITY    Security mirror URL
+
+Options:
+  -h, --help               Show this help message
+  Any other options are passed to 'lb config'
+
+Examples:
+  $0
+  DISTRIBUTION=bookworm $0
+  $0 --memtest memtest86+
+EOF
+}
+
+# Cleanup handler for interrupts
+cleanup() {
+    echo "Build interrupted. Run: lb clean --all" >&2
+    exit 1
+}
+
 # ============================================================================
 # Pre-flight Checks
 # ============================================================================
+
+# Handle help flag
+if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+    show_usage
+    exit 0
+fi
+
+# Setup trap for interrupt handling
+trap cleanup INT TERM
 
 # Validate Live Build is installed
 if ! command -v lb >/dev/null 2>&1; then
@@ -56,6 +109,53 @@ if [ -e "config/bootloaders" ]; then
     exit 1
 fi
 
+# Validate required configuration variables
+if [ -z "$DISTRIBUTION" ]; then
+    echo "Error: DISTRIBUTION is not set" >&2
+    exit 1
+fi
+
+if [ -z "$ARCHITECTURES" ]; then
+    echo "Error: ARCHITECTURES is not set" >&2
+    exit 1
+fi
+
+if [ -z "$HOSTNAME" ]; then
+    echo "Error: HOSTNAME is not set" >&2
+    exit 1
+fi
+
+if [ -z "$USERNAME" ]; then
+    echo "Error: USERNAME is not set" >&2
+    exit 1
+fi
+
+# Determine bootloader based on architecture
+case "$ARCHITECTURES" in
+    amd64)
+        BOOTLOADER="grub-efi-amd64"
+        ;;
+    i386)
+        BOOTLOADER="grub-pc"
+        ;;
+    arm64)
+        BOOTLOADER="grub-efi-arm64"
+        ;;
+    *)
+        echo "Error: Unsupported architecture '$ARCHITECTURES'" >&2
+        echo "Supported: amd64, i386, arm64" >&2
+        exit 1
+        ;;
+esac
+
+# Check if config already exists (avoid overwriting)
+if [ -d "config" ]; then
+    if [ -f "config/bootloaders" ] || [ -f "config/bootstrap" ]; then
+        echo "Error: Config directory already exists. Clean up with 'lb clean --all' first" >&2
+        exit 1
+    fi
+fi
+
 # ============================================================================
 # Build Configuration
 # ============================================================================
@@ -72,6 +172,19 @@ lb config noauto \
     --distribution "$DISTRIBUTION" \
     --architectures "$ARCHITECTURES" \
     --bootloader grub-efi-amd64 \
+echo "  Bootloader: $BOOTLOADER"
+echo "  Archive Areas: $ARCHIVE_AREAS"
+echo "  Hostname: $HOSTNAME"
+echo "  Username: $USERNAME"
+echo "  Locale: $LOCALE"
+echo "  Timezone: $TIMEZONE"
+echo ""
+
+# Execute lb config and capture output
+if ! lb config noauto \
+    --distribution "$DISTRIBUTION" \
+    --architectures "$ARCHITECTURES" \
+    --bootloader "$BOOTLOADER" \
     --binary-images iso-hybrid \
     --archive-areas "$ARCHIVE_AREAS" \
     --debian-installer none \
@@ -89,3 +202,22 @@ lb config noauto \
 
 echo "Configuration complete!"
 echo "Next step: Run 'lb build' to build the ISO"
+    --mirror-bootstrap "$MIRROR_BOOTSTRAP" \
+    --mirror-chroot "$MIRROR_CHROOT" \
+    --mirror-chroot-security "$MIRROR_CHROOT_SECURITY" \
+    --updates true \
+    --security true \
+    "${@}"; then
+    echo "Error: lb config failed" >&2
+    echo "Check the output above for details" >&2
+    exit 1
+fi
+
+echo ""
+echo "Configuration complete!"
+echo "Configuration saved to: config/"
+echo ""
+echo "Next steps:"
+echo "  1. Review configuration: ls -la config/"
+echo "  2. Build the ISO: lb build"
+echo "  3. Output will be in: ."

@@ -17,46 +17,6 @@ This release focuses on making the project buildable and easier to maintain:
 - The Waydroid hook is safer on Debian `/bin/sh`, validates downloads, retries
   transient network failures, and installs an Android setup helper for first
   boot.
-- Default Sway and Waybar user configuration is included in the live image so
-  the documented desktop shortcuts and status bar are available immediately.
-- A stronger distro foundation now includes Flatpak/Flathub, firmware updates,
-  firewall and AppArmor defaults, laptop power tuning, Bluetooth support,
-  zram-oriented memory behavior, Plymouth boot polish, and a built-in health
-  check helper.
-
-## Product goal
-
-LuxenOS should feel like a serious daily-driver operating system, not just a
-custom live image. The long-term bar is:
-
-- **Better than Windows for focus and reliability:** fewer background surprises,
-  safer defaults, fast updates, and clear diagnostics.
-- **Better than macOS for openness and control:** Debian base, open desktop
-  components, user-replaceable parts, Flatpak app distribution, and Android app
-  compatibility through Waydroid.
-- **Excellent laptop basics:** Wi-Fi/Bluetooth, firmware updates, battery life,
-  suspend/resume, touchpad-friendly UI, and a polished first boot.
-
-This repository now builds the foundation for that goal; future releases should
-add automated ISO builds, hardware certification, an installer, a custom shell,
-and full QA on target laptops.
-
-## Merge conflict resolution note
-
-This release intentionally converts the old top-level `config` file into the
-standard live-build `config/` directory and moves the script to `auto/config`.
-If Git reports a file/directory conflict while merging, resolve it by keeping:
-
-- `auto/config` as the executable live-build config script
-- `config/package-lists/` for package lists
-- `config/hooks/live/` for build hooks
-- `config/includes.chroot/` for files copied into the live image
-
-Do not keep the old top-level `config` file. After resolving, run:
-
-```sh
-tools/validate-release-tree
-```
 
 ## Target
 
@@ -84,6 +44,7 @@ From the repository root:
 ```sh
 sudo lb clean --purge
 lb config
+sudo lb config
 sudo lb build
 ```
 
@@ -164,6 +125,10 @@ config/hooks/live/0200-configure-premium-defaults.hook.chroot
 config/includes.chroot/usr/local/bin/luxenos-health-check
                                              Post-boot diagnostics helper
 tools/validate-release-tree                 Merge/layout validation helper
+config/package-lists/desktop.list.chroot     Sway, Waybar, Firefox, desktop apps
+config/package-lists/waydroid-deps.list.chroot Waydroid runtime dependencies
+config/hooks/live/0100-install-waydroid.hook.chroot
+                                             Waydroid, GApps, Aurora setup hook
 README.md                                    Build and release documentation
 ```
 
