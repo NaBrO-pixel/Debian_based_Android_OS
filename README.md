@@ -43,6 +43,7 @@ From the repository root:
 
 ```sh
 sudo lb clean --purge
+lb config
 sudo lb config
 sudo lb build
 ```
@@ -100,6 +101,8 @@ Google account features such as purchases or subscriptions.
 | Super+Return | Open terminal (Foot) |
 | Super+D | App launcher (wofi) |
 | Super+A | Open Waydroid / Android UI |
+| Super+Shift+A | Run Android setup helper |
+| Super+Shift+H | Run LuxenOS health check |
 | Super+L | Lock screen |
 | Super+Shift+E | Exit / logout |
 | Super+F | Fullscreen |
@@ -109,6 +112,19 @@ Google account features such as purchases or subscriptions.
 
 ```text
 auto/config                                  live-build target settings
+config/package-lists/desktop.list.chroot     Sway, Waybar, Firefox, desktop apps, polish
+config/package-lists/waydroid-deps.list.chroot Waydroid runtime dependencies
+config/includes.chroot/etc/skel/.config/sway/config
+                                             Default Sway session config
+config/includes.chroot/etc/skel/.config/waybar/
+                                             Default Waybar config and style
+config/hooks/live/0100-install-waydroid.hook.chroot
+                                             Waydroid, GApps, Aurora setup hook
+config/hooks/live/0200-configure-premium-defaults.hook.chroot
+                                             Security, app, firmware, and polish defaults
+config/includes.chroot/usr/local/bin/luxenos-health-check
+                                             Post-boot diagnostics helper
+tools/validate-release-tree                 Merge/layout validation helper
 config/package-lists/desktop.list.chroot     Sway, Waybar, Firefox, desktop apps
 config/package-lists/waydroid-deps.list.chroot Waydroid runtime dependencies
 config/hooks/live/0100-install-waydroid.hook.chroot

@@ -98,6 +98,17 @@ if ! command -v lb >/dev/null 2>&1; then
     exit 1
 fi
 
+# Warn if running as root (not always necessary but worth noting)
+if [ "$(id -u)" -eq 0 ]; then
+    echo "Warning: Running as root. This may cause permission issues." >&2
+fi
+
+# Check if config already exists (avoid overwriting)
+if [ -e "config/bootloaders" ]; then
+    echo "Error: live-build generated config already exists. Clean up with 'lb clean --all' first" >&2
+    exit 1
+fi
+
 # Validate required configuration variables
 if [ -z "$DISTRIBUTION" ]; then
     echo "Error: DISTRIBUTION is not set" >&2
@@ -152,6 +163,15 @@ fi
 echo "Building Debian Live configuration..."
 echo "  Distribution: $DISTRIBUTION"
 echo "  Architecture: $ARCHITECTURES"
+echo "  Archive Areas: $ARCHIVE_AREAS"
+echo "  Hostname: $HOSTNAME"
+echo "  Username: $USERNAME"
+echo ""
+
+lb config noauto \
+    --distribution "$DISTRIBUTION" \
+    --architectures "$ARCHITECTURES" \
+    --bootloader grub-efi-amd64 \
 echo "  Bootloader: $BOOTLOADER"
 echo "  Archive Areas: $ARCHIVE_AREAS"
 echo "  Hostname: $HOSTNAME"
@@ -173,6 +193,15 @@ if ! lb config noauto \
     --username "$USERNAME" \
     --locale "$LOCALE" \
     --timezone "$TIMEZONE" \
+    --mirror-bootstrap "http://deb.debian.org/debian" \
+    --mirror-chroot "http://deb.debian.org/debian" \
+    --mirror-chroot-security "http://security.debian.org/debian-security" \
+    --updates true \
+    --security true \
+    "${@}"
+
+echo "Configuration complete!"
+echo "Next step: Run 'lb build' to build the ISO"
     --mirror-bootstrap "$MIRROR_BOOTSTRAP" \
     --mirror-chroot "$MIRROR_CHROOT" \
     --mirror-chroot-security "$MIRROR_CHROOT_SECURITY" \
