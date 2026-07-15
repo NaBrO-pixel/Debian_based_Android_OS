@@ -1,4 +1,4 @@
-# Lapdroid OS — Debian Live Build
+# LauxenOS — Debian Live Build
 
 A custom Debian-based live OS built for laptops, using Sway as the desktop
 and Waydroid to run Android APKs (including Play Store apps) alongside
