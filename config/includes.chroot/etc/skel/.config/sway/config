@@ -1,0 +1,78 @@
+# LuxenOS default Sway config
+# Reload after editing with Super+Shift+C.
+
+set $mod Mod4
+set $term foot
+set $menu wofi --show drun
+
+font pango:Noto Sans 10
+
+# Output / wallpaper. Replace this solid color with a background image in a
+# future branded release, for example:
+# output * bg /usr/share/backgrounds/luxenos/wallpaper.png fill
+output * bg #1d2330 solid_color
+
+# Idle and lock behavior.
+exec swayidle -w \
+    timeout 300 'swaylock -f -c 1d2330' \
+    timeout 600 'swaymsg "output * dpms off"' \
+    resume 'swaymsg "output * dpms on"' \
+    before-sleep 'swaylock -f -c 1d2330'
+
+# Status bar.
+bar {
+    swaybar_command waybar
+}
+
+# Core bindings.
+bindsym $mod+Return exec $term
+bindsym $mod+d exec $menu
+bindsym $mod+Shift+q kill
+bindsym $mod+Shift+c reload
+bindsym $mod+Shift+e exec swaymsg exit
+bindsym $mod+l exec swaylock -f -c 1d2330
+
+# Android helpers.
+bindsym $mod+a exec waydroid show-full-ui
+bindsym $mod+Shift+a exec foot -e lapdroid-setup-android
+bindsym $mod+Shift+h exec foot -e luxenos-health-check
+
+# Focus.
+bindsym $mod+Left focus left
+bindsym $mod+Down focus down
+bindsym $mod+Up focus up
+bindsym $mod+Right focus right
+
+# Move.
+bindsym $mod+Shift+Left move left
+bindsym $mod+Shift+Down move down
+bindsym $mod+Shift+Up move up
+bindsym $mod+Shift+Right move right
+
+# Workspaces.
+bindsym $mod+1 workspace number 1
+bindsym $mod+2 workspace number 2
+bindsym $mod+3 workspace number 3
+bindsym $mod+4 workspace number 4
+bindsym $mod+Shift+1 move container to workspace number 1
+bindsym $mod+Shift+2 move container to workspace number 2
+bindsym $mod+Shift+3 move container to workspace number 3
+bindsym $mod+Shift+4 move container to workspace number 4
+
+# Layout.
+bindsym $mod+f fullscreen
+bindsym $mod+Shift+space floating toggle
+
+# Volume and brightness laptop keys.
+bindsym XF86AudioRaiseVolume exec wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+
+bindsym XF86AudioLowerVolume exec wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-
+bindsym XF86AudioMute exec wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle
+bindsym XF86MonBrightnessUp exec brightnessctl set +5%
+bindsym XF86MonBrightnessDown exec brightnessctl set 5%-
+
+# Autostart desktop helpers. Waydroid may still need its first network-backed
+# initialization, so ignore session-start failures here and use the setup helper.
+exec nm-applet --indicator
+exec sh -c 'waydroid session start >/dev/null 2>&1 || true'
+
+include /etc/sway/config.d/*

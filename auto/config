@@ -51,8 +51,8 @@ if [ "$(id -u)" -eq 0 ]; then
 fi
 
 # Check if config already exists (avoid overwriting)
-if [ -d "config" ] && [ -f "config/bootloaders" ]; then
-    echo "Error: Config already exists. Clean up with 'lb clean --all' first" >&2
+if [ -e "config/bootloaders" ]; then
+    echo "Error: live-build generated config already exists. Clean up with 'lb clean --all' first" >&2
     exit 1
 fi
 

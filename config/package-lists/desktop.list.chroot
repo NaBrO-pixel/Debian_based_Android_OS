@@ -31,7 +31,6 @@ pipewire-pulse
 wireplumber
 pavucontrol-qt
 alsa-utils
-alsa-firmware
 
 # Networking
 network-manager
@@ -67,3 +66,26 @@ firefox-esr
 mpv
 evince
 
+
+# Premium distro essentials
+flatpak
+gnome-software
+gnome-software-plugin-flatpak
+gnome-keyring
+seahorse
+fwupd
+bluez
+blueman
+ufw
+apparmor
+apparmor-profiles
+apparmor-utils
+tlp
+powertop
+zram-tools
+plymouth
+plymouth-themes
+papirus-icon-theme
+arc-theme
+fonts-inter
+fonts-noto-color-emoji

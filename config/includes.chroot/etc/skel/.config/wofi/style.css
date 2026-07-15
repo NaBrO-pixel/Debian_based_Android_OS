@@ -1,0 +1,22 @@
+window {
+    background-color: #1d2330;
+    color: #e0e6f0;
+    font-family: "Inter", "Noto Sans", sans-serif;
+}
+
+#input {
+    margin: 8px;
+    border: 1px solid #5e81ac;
+    border-radius: 8px;
+    background-color: #252d3f;
+    color: #ffffff;
+}
+
+#entry {
+    padding: 8px;
+}
+
+#entry:selected {
+    background-color: #5e81ac;
+    color: #ffffff;
+}

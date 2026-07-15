@@ -3,7 +3,10 @@
 # Runs inside the chroot during `lb build`, as root.
 # This version includes GApps + Play Store support + Aurora Store fallback.
 
-set -euo pipefail
+set -eu
+
+# dash (/bin/sh on Debian) does not support pipefail; enable it only when available.
+(set -o pipefail) 2>/dev/null && set -o pipefail || true
 
 # Configuration
 WAYDROID_REPO_URL="${WAYDROID_REPO_URL:-https://repo.waydro.id/}"
@@ -27,6 +30,20 @@ log_exec() {
     "$@"
 }
 
+run_or_die() {
+    local description="$1"
+    shift
+    local exit_code
+
+    if log_exec "$@"; then
+        return 0
+    else
+        exit_code=$?
+        log "ERROR: $description failed (exit code: $exit_code)"
+        exit "$exit_code"
+    fi
+}
+
 # Cleanup handler for temporary files
 cleanup() {
     local exit_code=$?
@@ -38,7 +55,7 @@ cleanup() {
 trap cleanup EXIT
 
 # Verify required commands are available
-for cmd in curl sh apt-get systemctl mkdir grep waydroid; do
+for cmd in curl sh apt-get systemctl mkdir grep head; do
     if ! command -v "$cmd" >/dev/null 2>&1; then
         log "ERROR: Required command '$cmd' not found"
         exit 1
@@ -124,24 +141,15 @@ if ! validate_installer "$WAYDROID_INSTALL_SCRIPT"; then
 fi
 
 log "Executing Waydroid repository installer..."
-if ! log_exec sh "$WAYDROID_INSTALL_SCRIPT"; then
-    log "ERROR: Waydroid repository installer failed (exit code: $?)"
-    exit 1
-fi
+run_or_die "Waydroid repository installer" sh "$WAYDROID_INSTALL_SCRIPT"
 log "Waydroid repository configured successfully"
 
 # Update package lists and install Waydroid
 log "Updating package lists..."
-if ! log_exec apt-get update; then
-    log "ERROR: apt-get update failed (exit code: $?)"
-    exit 1
-fi
+run_or_die "apt-get update" apt-get update
 
 log "Installing Waydroid package..."
-if ! log_exec apt-get install -y waydroid; then
-    log "ERROR: Failed to install Waydroid package (exit code: $?)"
-    exit 1
-fi
+run_or_die "Waydroid package installation" apt-get install -y waydroid
 log "Waydroid package installed successfully"
 
 # Create the first-boot systemd service for Waydroid initialization
@@ -165,10 +173,7 @@ RemainAfterExit=yes
 WantedBy=multi-user.target
 UNIT
 
-if ! log_exec systemctl enable waydroid-first-init.service; then
-    log "ERROR: Failed to enable waydroid-first-init.service (exit code: $?)"
-    exit 1
-fi
+run_or_die "Enabling waydroid-first-init.service" systemctl enable waydroid-first-init.service
 log "Waydroid first-boot service enabled"
 
 # Download Aurora Store APK for offline availability
@@ -194,8 +199,10 @@ echo ""
 echo "=== Lapdroid OS: Android / Play Store setup ==="
 echo ""
 
-# Wait for Waydroid session to be running
-echo "Waiting for Waydroid session..."
+# Start Waydroid session if it is not already running. The command can fail when
+# the session is already active, so ignore that specific first-start race.
+echo "Starting Waydroid session if needed..."
+waydroid session start >/dev/null 2>&1 || true
 sleep 3
 
 # Install Aurora Store (works without Google account, no certification needed)
@@ -255,10 +262,7 @@ log "Desktop entry created"
 
 # Final verification
 log "Verifying Waydroid installation..."
-if ! waydroid --version >/dev/null 2>&1; then
-    log "ERROR: Waydroid verification failed (exit code: $?)"
-    exit 1
-fi
+run_or_die "Waydroid verification" waydroid --version
 log "Waydroid installation verified successfully"
 
 log "=== Waydroid + GApps installation complete ==="

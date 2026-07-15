@@ -1,0 +1,37 @@
+* {
+    font-family: "Noto Sans", "Font Awesome 6 Free";
+    font-size: 13px;
+}
+
+window#waybar {
+    background-color: #1d2330;
+    color: #e0e6f0;
+}
+
+#workspaces button {
+    padding: 0 8px;
+    color: #8892a6;
+}
+
+#workspaces button.focused,
+#workspaces button.active {
+    color: #ffffff;
+    background-color: #2e3650;
+}
+
+#clock,
+#battery,
+#network,
+#pulseaudio,
+#tray {
+    padding: 0 10px;
+}
+
+#battery.warning {
+    color: #e0b341;
+}
+
+#battery.critical,
+#network.disconnected {
+    color: #e05a4f;
+}
