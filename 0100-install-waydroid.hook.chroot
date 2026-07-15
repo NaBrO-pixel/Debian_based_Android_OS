@@ -7,7 +7,9 @@ set -euo pipefail
 
 # Configuration
 WAYDROID_REPO_URL="${WAYDROID_REPO_URL:-https://repo.waydro.id/}"
-AURORA_STORE_URL="${AURORA_STORE_URL:-https://gitlab.com/AuroraOSS/AuroraStore/-/releases/permalink/latest/downloads/AuroraStore.apk}"
+# Use F-Droid as the primary source for Aurora Store APK. This points to the
+# direct APK in the F-Droid repo (update if a new version filename is needed).
+AURORA_STORE_URL="${AURORA_STORE_URL:-https://f-droid.org/repo/com.aurora.store_75.apk}"
 AURORA_STORE_DIR="${AURORA_STORE_DIR:-/usr/share/lapdroid-os/apks}"
 WAYDROID_INSTALL_SCRIPT="${WAYDROID_INSTALL_SCRIPT:-/tmp/waydroid-install.sh}"
 CURL_TIMEOUT="${WAYDROID_CURL_TIMEOUT:-300}"
@@ -206,7 +208,7 @@ if [ -f /usr/share/lapdroid-os/apks/AuroraStore.apk ]; then
     fi
 else
     echo "Aurora Store APK not found. You can download it from:"
-    echo "  https://gitlab.com/AuroraOSS/AuroraStore/-/releases"
+    echo "  https://f-droid.org/packages/com.aurora.store/"
 fi
 
 echo ""
