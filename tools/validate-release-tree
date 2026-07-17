@@ -17,22 +17,40 @@ check_executable() {
     [ -x "$1" ] || fail "required script is not executable: $1"
 }
 
+# Syntax-check a POSIX shell script without executing it. This catches
+# malformed control-flow and stray/duplicated command blocks (e.g. a
+# half-merged block whose trailing backslash swallows the next lines as
+# extra arguments) that a merge-conflict-marker grep alone would miss.
+check_shell_syntax() {
+    check_file "$1"
+    if ! sh -n "$1" 2>/tmp/luxenos-syntax-err.$$; then
+        cat /tmp/luxenos-syntax-err.$$ >&2
+        rm -f /tmp/luxenos-syntax-err.$$
+        fail "shell syntax error in: $1"
+    fi
+    rm -f /tmp/luxenos-syntax-err.$$
+}
+
 if [ -f config ]; then
     fail "top-level 'config' is a file; live-build requires it to be a directory"
 fi
 
 [ -d config ] || fail "missing live-build config directory"
 check_executable auto/config
+check_shell_syntax auto/config
 check_file config/package-lists/desktop.list.chroot
 check_file config/package-lists/waydroid-deps.list.chroot
 check_executable config/hooks/live/0100-install-waydroid.hook.chroot
+check_shell_syntax config/hooks/live/0100-install-waydroid.hook.chroot
 check_executable config/hooks/live/0200-configure-premium-defaults.hook.chroot
+check_shell_syntax config/hooks/live/0200-configure-premium-defaults.hook.chroot
 check_file config/includes.chroot/etc/skel/.config/sway/config
 check_file config/includes.chroot/etc/skel/.config/waybar/config
 check_file config/includes.chroot/etc/skel/.config/waybar/style.css
 check_file config/includes.chroot/etc/skel/.config/wofi/style.css
 check_file config/includes.chroot/etc/sysctl.d/99-luxenos.conf
 check_executable config/includes.chroot/usr/local/bin/luxenos-health-check
+check_shell_syntax config/includes.chroot/usr/local/bin/luxenos-health-check
 check_file config/includes.chroot/usr/share/applications/luxenos-health-check.desktop
 
 if rg -n '^(<<<<<<<|=======|>>>>>>>)' README.md auto config tools >/dev/null 2>&1; then
@@ -40,4 +58,4 @@ if rg -n '^(<<<<<<<|=======|>>>>>>>)' README.md auto config tools >/dev/null 2>&
     fail "merge conflict markers remain"
 fi
 
-echo "LuxenOS release tree is merge-clean."
+echo "LuxenOS release tree is merge-clean and syntax-valid."
