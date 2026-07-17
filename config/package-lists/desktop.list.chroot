@@ -1,0 +1,70 @@
+# Wayland Compositor Stack
+sway
+swaylock
+swayidle
+waybar
+xwayland
+xdg-desktop-portal
+xdg-desktop-portal-wlr
+
+# Core System Libraries & Services
+dbus
+udev
+systemd
+libwayland-dev
+libinput-dev
+
+# Terminal
+foot
+
+# Launchers & UI Tools
+wofi
+grim
+slurp
+wl-clipboard
+brightnessctl
+dunst
+
+# Audio System
+pipewire
+pipewire-pulse
+wireplumber
+pavucontrol-qt
+alsa-utils
+alsa-firmware
+
+# Networking
+network-manager
+network-manager-gnome
+wireless-tools
+iw
+
+# System & Firmware
+firmware-linux
+firmware-misc-nonfree
+polkit-kde-agent-1
+# libgl1-mesa-glx is a legacy/transitional package name; libgl1 is the
+# current Debian package that provides the OpenGL dispatch library.
+libgl1
+libgl1-mesa-dri
+gvfs
+udisks2
+
+# File Manager
+thunar
+tumbler
+ntfs-3g
+
+# Text Editor & Utilities
+gedit
+sudo
+
+# Fonts
+fonts-noto
+fonts-font-awesome
+fonts-dejavu
+
+# Applications
+firefox-esr
+mpv
+evince
