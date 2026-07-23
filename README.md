@@ -1,3 +1,4 @@
+# Ended support for this project.
 # LuxenOS — Debian Live Build
 
 LuxenOS is a Debian-based live OS for x86_64 laptops. It pairs the Sway
